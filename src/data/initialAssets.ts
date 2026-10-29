@@ -22580,56 +22580,34 @@ export const INITIAL_ASSETS: AssetItem[] = [
 export const INITIAL_USERS: AppUser[] = [
   {
     id: "usr-01",
-    name: "Romo Paroki Sedayu",
-    email: "romo.sedayu@kas.id",
+    username: "admin.pgpm",
+    password: "adminsedayu2026",
+    name: "Romo Paroki & Sekretariat",
+    email: "invent.theresia.sedayu@gmail.com",
     role: "ADMIN_PGPM",
-    roleTitle: "Ketua PGPM / Pastor Kepala Paroki"
+    roleTitle: "Pengurus Inti PGPM Paroki Sedayu",
+    description: "Kontrol penuh aset, nilai rupiah, hapus barang, dan cetak laporan resmi."
   },
   {
     id: "usr-02",
-    name: "Sekretariat PGPM Sedayu",
-    email: "invent.theresia.sedayu@gmail.com",
-    role: "ADMIN_PGPM",
-    roleTitle: "Admin Utama Inventaris PGPM Sedayu"
+    username: "timpel.sedayu",
+    password: "timpelsedayu2026",
+    name: "Tim Pelayanan & Pengurus Kapel",
+    email: "timpel.sedayu@kas.id",
+    role: "TIMPEL_PENGURUS",
+    roleTitle: "Pengurus Tim Pelayanan & Wilayah Kapel",
+    description: "Pendataan fisik, permohonan pinjam, verifikasi opname di lapangan.",
+    timpel: "Rumah Tangga & Liturgi"
   },
   {
     id: "usr-03",
-    name: "Tim Pelayanan Komsos & Audio",
-    email: "komsos.sedayu@kas.id",
-    role: "TIMPEL_PENGURUS",
-    roleTitle: "Pengurus Timpel Komsos & Audio Visual",
-    timpel: "Audio Visual"
-  },
-  {
-    id: "usr-04",
-    name: "Tim Pelayanan Liturgi & Paramenta",
-    email: "liturgi.sedayu@kas.id",
-    role: "TIMPEL_PENGURUS",
-    roleTitle: "Pengurus Timpel Paramenta & Tata Altar",
-    timpel: "Paramenta"
-  },
-  {
-    id: "usr-05",
-    name: "Pengurus Kapel Kaliduren",
-    email: "kapel.kaliduren@sedayu.id",
-    role: "TIMPEL_PENGURUS",
-    roleTitle: "Pengurus Kapel St. Maria Regina Kaliduren",
-    kapel: "Kapel Kaliduren"
-  },
-  {
-    id: "usr-06",
-    name: "Pengurus Kapel Metes",
-    email: "kapel.metes@sedayu.id",
-    role: "TIMPEL_PENGURUS",
-    roleTitle: "Pengurus Kapel St. Yusuf Metes",
-    kapel: "Kapel Metes"
-  },
-  {
-    id: "usr-07",
-    name: "Dewan Paroki Pleno (Audit)",
+    username: "auditor.dewan",
+    password: "auditorsedayu2026",
+    name: "Tim Audit Dewan Pastoral Paroki",
     email: "audit.dpp@sedayu.id",
     role: "AUDITOR_DEWAN",
-    roleTitle: "Tim Audit Internal PGPM KAS"
+    roleTitle: "Tim Audit Internal PGPM KAS",
+    description: "Mode audit independen, inspeksi berkala, rekapitulasi KAS."
   }
 ];
 

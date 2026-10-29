@@ -29,6 +29,8 @@ import { MaintenanceModal } from './components/MaintenanceModal';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { RoleAuthModal } from './components/RoleAuthModal';
 import { SyncModal } from './components/SyncModal';
+import { FrontLoginPage } from './components/FrontLoginPage';
+import { UserManagementView } from './components/UserManagementView';
 
 // Icons
 import {
@@ -63,6 +65,8 @@ import {
   SlidersHorizontal,
   Info,
   Check,
+  LogOut,
+  Users,
 } from 'lucide-react';
 
 export default function App() {
@@ -73,7 +77,7 @@ export default function App() {
     storageService.getMaintenance()
   );
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => storageService.getAuditLogs());
-  const [currentUser, setCurrentUser] = useState<AppUser>(() => storageService.getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => storageService.getAuthSession());
   const [syncSettings, setSyncSettings] = useState<SyncSettings>(() =>
     storageService.getSyncSettings()
   );
@@ -82,7 +86,7 @@ export default function App() {
   );
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'assets' | 'locations' | 'loans' | 'maintenance' | 'audit' | 'sync'
+    'dashboard' | 'assets' | 'locations' | 'loans' | 'maintenance' | 'audit' | 'users' | 'sync'
   >('dashboard');
 
   // Network offline state
@@ -173,8 +177,8 @@ export default function App() {
         namaBarang: newAsset.namaBarang,
         tipeAksi: 'EDIT_ASET',
         detailPerubahan: `Perubahan data aset: ${newAsset.namaBarang} (${newAsset.kondisi}, ${newAsset.lokasi})`,
-        pelaku: currentUser.name,
-        role: currentUser.role,
+        pelaku: currentUser?.name || 'Sekretariat PGPM',
+        role: currentUser?.role || 'ADMIN_PGPM',
       });
       triggerToast(`Aset ${newAsset.namaBarang} berhasil diperbarui!`, 'success');
     } else {
@@ -185,8 +189,8 @@ export default function App() {
         namaBarang: newAsset.namaBarang,
         tipeAksi: 'TAMBAH_ASET',
         detailPerubahan: `Penambahan inventaris baru: ${newAsset.namaBarang} (Kode: ${newAsset.kodeAset})`,
-        pelaku: currentUser.name,
-        role: currentUser.role,
+        pelaku: currentUser?.name || 'Sekretariat PGPM',
+        role: currentUser?.role || 'ADMIN_PGPM',
       });
       triggerToast(`Aset baru ${newAsset.namaBarang} berhasil ditambahkan!`, 'success');
     }
@@ -199,8 +203,8 @@ export default function App() {
   };
 
   const handleDeleteAsset = (assetToDelete: AssetItem) => {
-    if (currentUser.role === 'VIEWER') {
-      triggerToast('Akses ditolak: Viewer tidak memiliki izin menghapus aset.', 'warn');
+    if (currentUser?.role !== 'ADMIN_PGPM') {
+      triggerToast('Akses ditolak: Hanya ADMIN PGPM yang berwenang menghapus aset tetap gereja.', 'warn');
       return;
     }
     if (
@@ -217,8 +221,8 @@ export default function App() {
         namaBarang: assetToDelete.namaBarang,
         tipeAksi: 'HAPUS_ASET',
         detailPerubahan: `Penghapusan aset: ${assetToDelete.namaBarang} (${assetToDelete.kodeAset})`,
-        pelaku: currentUser.name,
-        role: currentUser.role,
+        pelaku: currentUser?.name || 'Sekretariat PGPM',
+        role: currentUser?.role || 'ADMIN_PGPM',
       });
       setAuditLogs(storageService.getAuditLogs());
       setShowDetailModal(false);
@@ -235,7 +239,7 @@ export default function App() {
         ? {
             ...a,
             terakhirOpname: today,
-            auditorOpname: currentUser.name,
+            auditorOpname: currentUser?.name || 'Sekretariat PGPM',
             kondisi: a.kondisi === 'Belum Opname' ? 'Baik' : a.kondisi,
           }
         : a
@@ -248,8 +252,8 @@ export default function App() {
       namaBarang: asset.namaBarang,
       tipeAksi: 'OPNAME',
       detailPerubahan: `Verifikasi opname fisik selesai di ${asset.lokasi} (${asset.ruangNama})`,
-      pelaku: currentUser.name,
-      role: currentUser.role,
+      pelaku: currentUser?.name || 'Sekretariat PGPM',
+      role: currentUser?.role || 'ADMIN_PGPM',
     });
     setAuditLogs(storageService.getAuditLogs());
     triggerToast(`Opname fisik "${asset.namaBarang}" berhasil diverifikasi!`, 'success');
@@ -274,8 +278,8 @@ export default function App() {
       namaBarang: loan.namaBarang,
       tipeAksi: 'PINJAM',
       detailPerubahan: `Peminjaman ${loan.jumlahPinjam} unit oleh ${loan.namaPeminjam} (${loan.lingkunganWilayah})`,
-      pelaku: currentUser.name,
-      role: currentUser.role,
+      pelaku: currentUser?.name || 'Sekretariat PGPM',
+      role: currentUser?.role || 'ADMIN_PGPM',
     });
     setAuditLogs(storageService.getAuditLogs());
 
@@ -321,8 +325,8 @@ export default function App() {
         namaBarang: targetLoan.namaBarang,
         tipeAksi: 'KEMBALI',
         detailPerubahan: `Pengembalian ${targetLoan.namaBarang} dari ${targetLoan.namaPeminjam} (Kondisi: ${returnCondition})`,
-        pelaku: currentUser.name,
-        role: currentUser.role,
+        pelaku: currentUser?.name || 'Sekretariat PGPM',
+        role: currentUser?.role || 'ADMIN_PGPM',
       });
       setAuditLogs(storageService.getAuditLogs());
     }
@@ -363,8 +367,8 @@ export default function App() {
       namaBarang: record.namaBarang,
       tipeAksi: 'PERAWATAN',
       detailPerubahan: `Jadwal pemeliharaan: ${record.jenisPemeliharaan} (${record.status})`,
-      pelaku: currentUser.name,
-      role: currentUser.role,
+      pelaku: currentUser?.name || 'Sekretariat PGPM',
+      role: currentUser?.role || 'ADMIN_PGPM',
     });
     setAuditLogs(storageService.getAuditLogs());
 
@@ -381,8 +385,8 @@ export default function App() {
       namaBarang: `${newItems.length} Barang Impor`,
       tipeAksi: 'IMPORT_EXCEL',
       detailPerubahan: `Impor massal ${newItems.length} data inventaris dari spreadsheet`,
-      pelaku: currentUser.name,
-      role: currentUser.role,
+      pelaku: currentUser?.name || 'Sekretariat PGPM',
+      role: currentUser?.role || 'ADMIN_PGPM',
     });
     setAuditLogs(storageService.getAuditLogs());
     triggerToast(`Berhasil mengimpor ${newItems.length} aset baru ke database!`, 'success');
@@ -521,6 +525,18 @@ export default function App() {
     return groups;
   }, [assets]);
 
+  if (!currentUser) {
+    return (
+      <FrontLoginPage
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          storageService.setAuthSession(user);
+          triggerToast(`Selamat datang, ${user.name}! Anda berhasil masuk sebagai ${user.role}.`, 'success');
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-blue-900 selection:text-white">
       {/* Top Navbar */}
@@ -529,7 +545,18 @@ export default function App() {
           <div className="flex items-center justify-between h-16">
             {/* Church Identity Brand */}
             <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-700 to-blue-950 border border-blue-500/30 flex items-center justify-center font-bold text-amber-400 text-lg shadow-sm">
+              <img
+                src="/assets/aistudio/logo_transparent.png"
+                alt="Logo Gereja St. Theresia Sedayu"
+                className="h-10 sm:h-11 w-auto object-contain shrink-0 drop-shadow-md"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.includes('logo_6b0741bc.png')) {
+                    target.src = '/assets/aistudio/logo_6b0741bc.png';
+                  }
+                }}
+              />
+              <div className="hidden sm:flex w-8 h-8 rounded-xl bg-gradient-to-br from-blue-700 to-blue-950 border border-blue-500/30 items-center justify-center font-bold text-amber-400 text-sm shadow-sm shrink-0">
                 ✝
               </div>
               <div>
@@ -650,10 +677,18 @@ export default function App() {
               <button
                 onClick={() => setShowRoleModal(true)}
                 className="flex items-center space-x-2 pl-2 pr-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition text-left"
-                title="Ganti Peran Pengguna"
+                title="Lihat Hak Akses & Ganti Peran"
               >
-                <div className="w-6 h-6 rounded-lg bg-blue-900 text-amber-300 font-bold text-xs flex items-center justify-center">
-                  ✝
+                <div
+                  className={`w-6 h-6 rounded-lg font-bold text-xs flex items-center justify-center ${
+                    currentUser.role === 'ADMIN_PGPM'
+                      ? 'bg-blue-900 text-amber-300'
+                      : currentUser.role === 'AUDITOR_DEWAN'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-emerald-700 text-white'
+                  }`}
+                >
+                  {currentUser.role === 'ADMIN_PGPM' ? '✝' : currentUser.role === 'AUDITOR_DEWAN' ? '⚖' : '✓'}
                 </div>
                 <div className="hidden lg:block">
                   <div className="text-xs font-bold text-white truncate max-w-[130px]">
@@ -661,6 +696,20 @@ export default function App() {
                   </div>
                   <div className="text-[9px] text-slate-400 font-mono">{currentUser.role}</div>
                 </div>
+              </button>
+
+              {/* Logout Button */}
+              <button
+                onClick={() => {
+                  storageService.logout();
+                  setCurrentUser(null);
+                  triggerToast('Anda telah keluar dari sistem inventaris.', 'info');
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-red-950/80 border border-slate-700 hover:border-red-500/50 text-slate-300 hover:text-red-200 transition flex items-center gap-1.5 text-xs font-semibold"
+                title="Keluar ke Halaman Muka (Logout)"
+              >
+                <LogOut className="w-3.5 h-3.5 text-red-400" />
+                <span className="hidden sm:inline">Keluar</span>
               </button>
             </div>
           </div>
@@ -676,6 +725,9 @@ export default function App() {
               { id: 'loans', label: `Peminjaman (${loans.filter((l) => l.status === 'Sedang Dipinjam').length})`, icon: CalendarDays },
               { id: 'maintenance', label: `Jadwal Pemeliharaan (${maintenance.filter((m) => m.status === 'Jatuh Tempo').length > 0 ? '⚠️' : maintenance.length})`, icon: Wrench },
               { id: 'audit', label: 'Log Mutasi & Audit', icon: FileText },
+              ...(currentUser?.role === 'ADMIN_PGPM'
+                ? [{ id: 'users', label: 'Registrasi User', icon: Users }]
+                : []),
               { id: 'sync', label: 'Integrasi API & Backup', icon: RefreshCw },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -1869,6 +1921,15 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* -------------------- TAB: REGISTRASI & MANAJEMEN USER (KHUSUS ADMIN PGPM) -------------------- */}
+        {activeTab === 'users' && currentUser?.role === 'ADMIN_PGPM' && (
+          <UserManagementView
+            currentUser={currentUser}
+            onUserListChanged={() => {}}
+            triggerToast={triggerToast}
+          />
+        )}
       </main>
 
       {/* Footer */}
@@ -1877,8 +1938,8 @@ export default function App() {
           <div>
             <strong>INVENTARISASI GEREJA ST. THERESIA SEDAYU</strong> • PGPM Paroki St. Theresia Sedayu
           </div>
-          <div className="text-[11px] text-slate-400">
-            Sesuai Pedoman Tata Kelola Aset KAS (Pasal 14 PDP3 2020) • Mode Offline & Multi-Perangkat
+          <div className="text-[11px] text-slate-500">
+            Pastor Kepala Paroki: <strong>Romo Antonius Hadi Cahyono, Pr</strong> • Standar PDP3 2020 KAS
           </div>
         </div>
       </footer>
@@ -1991,13 +2052,19 @@ export default function App() {
         />
       )}
 
-      {showRoleModal && (
+      {showRoleModal && currentUser && (
         <RoleAuthModal
           currentUser={currentUser}
           onSelectUser={(u) => {
             setCurrentUser(u);
-            storageService.setCurrentUser(u);
+            storageService.setAuthSession(u);
             triggerToast(`Beralih ke profil: ${u.name} (${u.role})`, 'info');
+          }}
+          onLogout={() => {
+            storageService.logout();
+            setCurrentUser(null);
+            setShowRoleModal(false);
+            triggerToast('Anda telah berhasil keluar dari sistem inventaris.', 'info');
           }}
           onClose={() => setShowRoleModal(false)}
         />

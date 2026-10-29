@@ -1,11 +1,13 @@
 import { AssetItem, LoanRecord, MaintenanceRecord, AuditLog, AppUser } from '../types/inventory';
 import { INITIAL_ASSETS, INITIAL_LOANS, INITIAL_MAINTENANCE, INITIAL_AUDIT_LOGS, INITIAL_USERS } from '../data/initialAssets';
+import { AUTH_USERS, AuthAccount } from '../data/authUsers';
 
 const ASSETS_KEY = 'pgpm_sedayu_assets_v1';
 const LOANS_KEY = 'pgpm_sedayu_loans_v1';
 const MAINTENANCE_KEY = 'pgpm_sedayu_maintenance_v1';
 const AUDIT_LOGS_KEY = 'pgpm_sedayu_audit_logs_v1';
 const USER_KEY = 'pgpm_sedayu_current_user_v1';
+const REGISTERED_USERS_KEY = 'pgpm_sedayu_registered_users_v1';
 const SYNC_SETTINGS_KEY = 'pgpm_sedayu_sync_settings_v1';
 const OFFLINE_QUEUE_KEY = 'pgpm_sedayu_offline_queue_v1';
 
@@ -122,23 +124,106 @@ export const storageService = {
     this.saveAuditLogs(logs);
   },
 
-  getCurrentUser(): AppUser {
+  getAuthSession(): AppUser | null {
     try {
       const data = localStorage.getItem(USER_KEY);
       if (data) return JSON.parse(data);
     } catch (e) {
-      console.error('Failed to load user', e);
+      console.error('Failed to load auth session', e);
     }
-    return INITIAL_USERS[1]; // Sekretariat PGPM Sedayu by default
+    return null;
   },
 
-  setCurrentUser(user: AppUser): void {
+  setAuthSession(user: AppUser): void {
     try {
       localStorage.setItem(USER_KEY, JSON.stringify(user));
       window.dispatchEvent(new CustomEvent('pgpm_user_changed', { detail: user }));
     } catch (e) {
-      console.error('Failed to save user', e);
+      console.error('Failed to save auth session', e);
     }
+  },
+
+  logout(): void {
+    try {
+      localStorage.removeItem(USER_KEY);
+      window.dispatchEvent(new CustomEvent('pgpm_user_changed', { detail: null }));
+    } catch (e) {
+      console.error('Failed to logout', e);
+    }
+  },
+
+  getCurrentUser(): AppUser {
+    return this.getAuthSession() || this.getRegisteredUsers()[0];
+  },
+
+  setCurrentUser(user: AppUser): void {
+    this.setAuthSession(user);
+  },
+
+  getRegisteredUsers(): AuthAccount[] {
+    try {
+      const data = localStorage.getItem(REGISTERED_USERS_KEY);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error('Failed to load registered users', e);
+    }
+    this.saveRegisteredUsers(AUTH_USERS);
+    return AUTH_USERS;
+  },
+
+  saveRegisteredUsers(users: AuthAccount[]): void {
+    try {
+      localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
+      window.dispatchEvent(new CustomEvent('pgpm_registered_users_updated', { detail: users }));
+    } catch (e) {
+      console.error('Failed to save registered users', e);
+    }
+  },
+
+  addRegisteredUser(newUser: AuthAccount): void {
+    const current = this.getRegisteredUsers();
+    // check if username already exists
+    const exists = current.some(
+      (u) => u.username.toLowerCase() === newUser.username.toLowerCase()
+    );
+    if (exists) {
+      throw new Error(`Username "${newUser.username}" sudah digunakan.`);
+    }
+    const updated = [...current, newUser];
+    this.saveRegisteredUsers(updated);
+  },
+
+  updateRegisteredUser(user: AuthAccount): void {
+    const current = this.getRegisteredUsers();
+    const updated = current.map((u) => (u.id === user.id ? user : u));
+    this.saveRegisteredUsers(updated);
+  },
+
+  deleteRegisteredUser(userId: string): void {
+    const current = this.getRegisteredUsers();
+    // Cannot delete the primary admin
+    if (userId === 'usr-admin-01') {
+      throw new Error('Akun Administrator Utama PGPM tidak dapat dihapus.');
+    }
+    const updated = current.filter((u) => u.id !== userId);
+    this.saveRegisteredUsers(updated);
+  },
+
+  authenticate(username: string, password: string): AuthAccount | null {
+    const users = this.getRegisteredUsers();
+    const cleanU = username.trim().toLowerCase();
+    const cleanP = password.trim();
+
+    const match = users.find(
+      (u) =>
+        (u.username.toLowerCase() === cleanU || u.email.toLowerCase() === cleanU) &&
+        u.password === cleanP
+    );
+
+    return match || null;
   },
 
   getSyncSettings(): SyncSettings {

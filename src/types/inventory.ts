@@ -113,8 +113,12 @@ export interface AppUser {
   id: string;
   name: string;
   email: string;
+  username: string;
+  password?: string;
   role: UserRole;
   roleTitle: string;
+  description: string;
   timpel?: string;
   kapel?: string;
 }
+

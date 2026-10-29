@@ -193,7 +193,7 @@ export const exportService = {
       doc.text('(Ketua PGPM Paroki Sedayu)', 40, signY + 9);
       doc.text('_________________________________', 40, signY + 28);
       doc.setFont('helvetica', 'bold');
-      doc.text('Romo Paroki St. Theresia Sedayu', 40, signY + 33);
+      doc.text('Romo Antonius Hadi Cahyono, Pr', 40, signY + 33);
 
       doc.setFont('helvetica', 'normal');
       doc.text(`Sedayu, ${dateFormatted}`, pageWidth - 90, signY);
