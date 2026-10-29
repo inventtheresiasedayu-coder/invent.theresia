@@ -63,7 +63,7 @@ export const FrontLoginPage: React.FC<FrontLoginPageProps> = ({ onLoginSuccess }
                 PGPM PAROKI ST. THERESIA SEDAYU
               </span>
               <span className="text-[10px] text-slate-400 block font-medium">
-                Keuskupan Agung Semarang (KAS) • Pastor Kepala: Romo Antonius Hadi Cahyono, Pr
+                Pastor Kepala: Romo Antonius Hadi Cahyono, Pr
               </span>
             </div>
           </div>
@@ -102,7 +102,7 @@ export const FrontLoginPage: React.FC<FrontLoginPageProps> = ({ onLoginSuccess }
 
             <div className="space-y-2.5">
               <div className="inline-block px-3 py-1 bg-blue-900/40 border border-blue-500/30 rounded-full text-blue-300 text-[11px] font-bold tracking-wide">
-                PASAL 14 PDP3 TAHUN 2020 KAS
+                SISTEM MANAJEMEN ASET DIGITAL
               </div>
               <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
                 Sistem Inventarisasi Aset Tetap <br />

@@ -170,7 +170,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               <div className="flex items-center space-x-2">
                 <Sparkles className="w-4 h-4 text-blue-700" />
                 <span className="text-xs font-bold uppercase tracking-wider text-blue-950">
-                  Kode Inventaris Aset (Standar KAS PDP3)
+                  Kode Inventaris Resmi Aset
                 </span>
               </div>
               <label className="flex items-center space-x-2 cursor-pointer text-xs text-blue-900">

@@ -58,7 +58,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({ asset, onClose }) =>
             <Tag className="w-5 h-5 text-amber-400" />
             <div>
               <h3 className="font-semibold text-base">Label Barcode & QR Code Aset</h3>
-              <p className="text-xs text-slate-400">Standar Format PGPM Keuskupan Agung Semarang</p>
+              <p className="text-xs text-slate-400">PGPM Paroki St. Theresia Sedayu</p>
             </div>
           </div>
           <button

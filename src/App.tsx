@@ -565,13 +565,13 @@ export default function App() {
                     INVENTARISASI GEREJA ST. THERESIA SEDAYU
                   </h1>
                   <span className="hidden md:inline-block px-2 py-0.5 bg-blue-950 text-blue-200 border border-blue-700/50 rounded text-[10px] font-mono font-bold">
-                    PGPM KAS
+                    PGPM SEDAYU
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                  <span>Keuskupan Agung Semarang</span>
+                  <span>Sistem Digital Aset Paroki</span>
                   <span>•</span>
-                  <span>Pasal 14 PDP3 2020</span>
+                  <span>Pastor Kepala: Romo Antonius Hadi Cahyono, Pr</span>
                 </p>
               </div>
             </div>
@@ -778,7 +778,7 @@ export default function App() {
                 <div className="inline-flex items-center space-x-2 px-3 py-1 bg-amber-400/20 border border-amber-400/30 rounded-full text-amber-300 text-xs font-bold mb-3">
                   <span>✝ PGPM PAROKI SANTA THERESIA SEDAYU</span>
                   <span>•</span>
-                  <span>STANDAR PDP3 TAHUN 2020 KAS</span>
+                  <span>SISTEM ASET DIGITAL</span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-2">
                   Sistem Informasi Manajemen Inventarisasi Aset Tetap Gereja
@@ -1441,7 +1441,7 @@ export default function App() {
                   Pelacakan Lokasi Fisik & Kartu Inventaris Ruangan (KIR)
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Sesuai pedoman Pasal 14 PDP3 Tahun 2020: "Kartu inventaris ditempelkan di ruang masing-masing secara periodik".
+                  Kartu inventaris ditempelkan di ruang masing-masing secara periodik untuk pemantauan fisik aset.
                 </p>
               </div>
 
@@ -1939,7 +1939,7 @@ export default function App() {
             <strong>INVENTARISASI GEREJA ST. THERESIA SEDAYU</strong> • PGPM Paroki St. Theresia Sedayu
           </div>
           <div className="text-[11px] text-slate-500">
-            Pastor Kepala Paroki: <strong>Romo Antonius Hadi Cahyono, Pr</strong> • Standar PDP3 2020 KAS
+            Pastor Kepala Paroki: <strong>Romo Antonius Hadi Cahyono, Pr</strong>
           </div>
         </div>
       </footer>
