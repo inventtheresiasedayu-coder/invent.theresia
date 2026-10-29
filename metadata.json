@@ -1,0 +1,6 @@
+{
+  "name": "Inventarisasi Gereja St. Theresia Sedayu",
+  "description": "Sistem Informasi Manajemen Inventarisasi Aset PGPM Paroki St. Theresia Sedayu KAS",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
