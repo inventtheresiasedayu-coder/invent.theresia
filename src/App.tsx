@@ -31,6 +31,8 @@ import { RoleAuthModal } from './components/RoleAuthModal';
 import { SyncModal } from './components/SyncModal';
 import { FrontLoginPage } from './components/FrontLoginPage';
 import { UserManagementView } from './components/UserManagementView';
+import { DeleteConfirmModal } from './components/DeleteConfirmModal';
+import { testFirebaseConnection, subscribeToCloudAssets } from './services/firebaseService';
 
 // Icons
 import {
@@ -67,6 +69,9 @@ import {
   Check,
   LogOut,
   Users,
+  Trash2,
+  Flame,
+  Edit,
 } from 'lucide-react';
 
 export default function App() {
@@ -127,6 +132,8 @@ export default function App() {
   const [showExcelImportModal, setShowExcelImportModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<AssetItem | null>(null);
 
   // Toast Notification
   const [toastMessage, setToastMessage] = useState<{
@@ -137,15 +144,38 @@ export default function App() {
   // Notifications Drawer
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
 
-  // Online / Offline listeners
+  // Online / Offline & Firebase listeners
   useEffect(() => {
+    // Validate connection to Firebase Cloud Firestore
+    testFirebaseConnection()
+      .then((status) => {
+        if (status.connected) {
+          storageService.processOfflineQueue().catch(() => {});
+        }
+      })
+      .catch(() => {});
+
+    // Realtime Cloud Listener for Assets
+    let unsubscribe: (() => void) | null = null;
+    try {
+      unsubscribe = subscribeToCloudAssets((cloudItems) => {
+        if (cloudItems && cloudItems.length > 0) {
+          setAssets(cloudItems);
+          storageService.saveAssets(cloudItems);
+        }
+      });
+    } catch (e) {
+      console.warn('Realtime subscription notice:', e);
+    }
+
     const handleOnline = () => {
       setIsOnline(true);
-      triggerToast('Koneksi internet terhubung kembali. Sinkronisasi otomatis aktif.', 'success');
+      triggerToast('Koneksi internet terhubung kembali. Sinkronisasi otomatis ke Firebase Cloud aktif.', 'success');
+      storageService.processOfflineQueue().catch(() => {});
     };
     const handleOffline = () => {
       setIsOnline(false);
-      triggerToast('Mode offline aktif. Seluruh pencatatan tersimpan aman secara lokal.', 'warn');
+      triggerToast('Mode offline aktif. Seluruh pencatatan tersimpan aman secara lokal & antrean pending.', 'warn');
     };
 
     window.addEventListener('online', handleOnline);
@@ -154,6 +184,7 @@ export default function App() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      if (unsubscribe) unsubscribe();
     };
   }, []);
 
@@ -165,10 +196,41 @@ export default function App() {
   // Keep existing codes in memory for sequence calculator
   const allExistingCodes = useMemo(() => assets.map((a) => a.kodeAset), [assets]);
 
-  // Save changes handler
-  const handleSaveAsset = (newAsset: AssetItem) => {
+  // Permission helper: Both Admin PGPM and Tim Pelayanan (Timpel) have edit and delete permissions
+  const canEditOrDelete = (user: AppUser | null) => {
+    if (!user) return false;
+    return user.role === 'ADMIN_PGPM' || user.role === 'TIMPEL_PENGURUS';
+  };
+
+  const handleOpenEditModal = (asset: AssetItem) => {
+    if (!canEditOrDelete(currentUser)) {
+      triggerToast('Akses ditolak: Hanya Admin PGPM dan Tim Pelayanan (Timpel) yang memiliki hak akses untuk mengedit aset.', 'warn');
+      return;
+    }
+    setAssetToEdit(asset);
+    setShowFormModal(true);
+  };
+
+  const handleOpenDeleteModal = (asset: AssetItem) => {
+    if (!canEditOrDelete(currentUser)) {
+      triggerToast('Akses ditolak: Hanya Admin PGPM dan Tim Pelayanan (Timpel) yang memiliki hak akses untuk menghapus aset.', 'warn');
+      return;
+    }
+    setAssetToDelete(asset);
+    setShowDeleteModal(true);
+  };
+
+  // Save changes handler (Edit or Add)
+  const handleSaveAsset = async (newAsset: AssetItem) => {
+    if (!canEditOrDelete(currentUser)) {
+      triggerToast('Akses ditolak: Hanya Admin PGPM dan Tim Pelayanan (Timpel) yang memiliki hak akses.', 'warn');
+      return;
+    }
+
     const exists = assets.some((a) => a.id === newAsset.id);
     let updated: AssetItem[];
+    const userRoleDesc = currentUser?.role === 'ADMIN_PGPM' ? 'ADMIN_PGPM' : 'TIMPEL_PENGURUS';
+
     if (exists) {
       updated = assets.map((a) => (a.id === newAsset.id ? newAsset : a));
       storageService.addAuditLog({
@@ -176,11 +238,11 @@ export default function App() {
         assetKode: newAsset.kodeAset,
         namaBarang: newAsset.namaBarang,
         tipeAksi: 'EDIT_ASET',
-        detailPerubahan: `Perubahan data aset: ${newAsset.namaBarang} (${newAsset.kondisi}, ${newAsset.lokasi})`,
-        pelaku: currentUser?.name || 'Sekretariat PGPM',
-        role: currentUser?.role || 'ADMIN_PGPM',
+        detailPerubahan: `Perubahan data aset oleh ${currentUser?.name}: ${newAsset.namaBarang} (${newAsset.kondisi}, ${newAsset.lokasi})`,
+        pelaku: currentUser?.name || 'Pengurus Paroki',
+        role: userRoleDesc,
       });
-      triggerToast(`Aset ${newAsset.namaBarang} berhasil diperbarui!`, 'success');
+      triggerToast(`Aset "${newAsset.namaBarang}" berhasil diperbarui & disimpan ke Firebase Cloud!`, 'success');
     } else {
       updated = [newAsset, ...assets];
       storageService.addAuditLog({
@@ -188,47 +250,44 @@ export default function App() {
         assetKode: newAsset.kodeAset,
         namaBarang: newAsset.namaBarang,
         tipeAksi: 'TAMBAH_ASET',
-        detailPerubahan: `Penambahan inventaris baru: ${newAsset.namaBarang} (Kode: ${newAsset.kodeAset})`,
-        pelaku: currentUser?.name || 'Sekretariat PGPM',
-        role: currentUser?.role || 'ADMIN_PGPM',
+        detailPerubahan: `Penambahan inventaris baru oleh ${currentUser?.name}: ${newAsset.namaBarang} (Kode: ${newAsset.kodeAset})`,
+        pelaku: currentUser?.name || 'Pengurus Paroki',
+        role: userRoleDesc,
       });
-      triggerToast(`Aset baru ${newAsset.namaBarang} berhasil ditambahkan!`, 'success');
+      triggerToast(`Aset baru "${newAsset.namaBarang}" berhasil ditambahkan & disimpan ke Firebase Cloud!`, 'success');
     }
 
     setAssets(updated);
-    storageService.saveAssets(updated);
+    await storageService.saveSingleAsset(newAsset);
     setAuditLogs(storageService.getAuditLogs());
     setShowFormModal(false);
     setAssetToEdit(null);
   };
 
-  const handleDeleteAsset = (assetToDelete: AssetItem) => {
-    if (currentUser?.role !== 'ADMIN_PGPM') {
-      triggerToast('Akses ditolak: Hanya ADMIN PGPM yang berwenang menghapus aset tetap gereja.', 'warn');
-      return;
-    }
-    if (
-      confirm(
-        `Konfirmasi: Yakin ingin menghapus aset "${assetToDelete.namaBarang}" (${assetToDelete.kodeAset}) dari database PGPM?`
-      )
-    ) {
-      const updated = assets.filter((a) => a.id !== assetToDelete.id);
-      setAssets(updated);
-      storageService.saveAssets(updated);
-      storageService.addAuditLog({
-        assetId: assetToDelete.id,
-        assetKode: assetToDelete.kodeAset,
-        namaBarang: assetToDelete.namaBarang,
-        tipeAksi: 'HAPUS_ASET',
-        detailPerubahan: `Penghapusan aset: ${assetToDelete.namaBarang} (${assetToDelete.kodeAset})`,
-        pelaku: currentUser?.name || 'Sekretariat PGPM',
-        role: currentUser?.role || 'ADMIN_PGPM',
-      });
-      setAuditLogs(storageService.getAuditLogs());
-      setShowDetailModal(false);
-      setSelectedAssetForDetail(null);
-      triggerToast(`Aset ${assetToDelete.namaBarang} berhasil dihapus.`, 'info');
-    }
+  const handleConfirmDelete = async (asset: AssetItem, reason: string) => {
+    const updated = assets.filter((a) => a.id !== asset.id);
+    setAssets(updated);
+
+    // Persist deletion locally & in Firebase Firestore
+    await storageService.deleteSingleAsset(asset.id);
+
+    const userRoleDesc = currentUser?.role === 'ADMIN_PGPM' ? 'ADMIN_PGPM' : 'TIMPEL_PENGURUS';
+    storageService.addAuditLog({
+      assetId: asset.id,
+      assetKode: asset.kodeAset,
+      namaBarang: asset.namaBarang,
+      tipeAksi: 'HAPUS_ASET',
+      detailPerubahan: `Penghapusan aset: ${asset.namaBarang} (${asset.kodeAset}) oleh ${currentUser?.name}. Alasan: ${reason}`,
+      pelaku: currentUser?.name || 'Pengurus Paroki',
+      role: userRoleDesc,
+    });
+
+    setAuditLogs(storageService.getAuditLogs());
+    setShowDeleteModal(false);
+    setAssetToDelete(null);
+    setShowDetailModal(false);
+    setSelectedAssetForDetail(null);
+    triggerToast(`Aset "${asset.namaBarang}" berhasil dihapus dari Cloud Server Firebase & database.`, 'info');
   };
 
   // Quick physical check (Opname)
@@ -579,6 +638,16 @@ export default function App() {
 
             {/* Quick Actions & Status Tools */}
             <div className="flex items-center space-x-2 sm:space-x-3">
+              {/* Firebase Cloud Indicator */}
+              <button
+                onClick={() => setShowSyncModal(true)}
+                title="Status Firebase Cloud Firestore: Terhubung & Aktif"
+                className="hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-blue-950/70 border-blue-500/50 text-blue-300 hover:bg-blue-900/60 transition shadow-2xs"
+              >
+                <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                <span className="text-[11px] font-mono">Firebase Cloud</span>
+              </button>
+
               {/* Online / Offline Indicator */}
               <button
                 onClick={() => setShowSyncModal(true)}
@@ -1500,14 +1569,18 @@ export default function App() {
                                 <CheckCircle2 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => {
-                                  setAssetToEdit(item);
-                                  setShowFormModal(true);
-                                }}
+                                onClick={() => handleOpenEditModal(item)}
                                 className="p-1 rounded-lg text-slate-500 hover:text-amber-700 hover:bg-slate-100 transition"
-                                title="Edit Aset"
+                                title="Edit Aset (Hak Akses: Admin & Timpel)"
                               >
-                                <SlidersHorizontal className="w-4 h-4" />
+                                <Edit className="w-4 h-4 text-amber-600" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenDeleteModal(item)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                                title="Hapus Aset (Hak Akses: Admin & Timpel)"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500" />
                               </button>
                             </td>
                           </tr>
@@ -2086,10 +2159,11 @@ export default function App() {
           }}
           onEdit={(asset) => {
             setShowDetailModal(false);
-            setAssetToEdit(asset);
-            setShowFormModal(true);
+            handleOpenEditModal(asset);
           }}
-          onDelete={handleDeleteAsset}
+          onDelete={(asset) => {
+            handleOpenDeleteModal(asset);
+          }}
           onOpenBarcode={(asset) => {
             setSelectedAssetForBarcode(asset);
             setShowBarcodeModal(true);
@@ -2207,6 +2281,18 @@ export default function App() {
           }}
           onRestoreData={handleRestoreData}
           onClose={() => setShowSyncModal(false)}
+        />
+      )}
+
+      {showDeleteModal && assetToDelete && (
+        <DeleteConfirmModal
+          asset={assetToDelete}
+          currentUser={currentUser}
+          onConfirm={handleConfirmDelete}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setAssetToDelete(null);
+          }}
         />
       )}
     </div>

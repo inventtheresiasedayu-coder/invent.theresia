@@ -1,0 +1,125 @@
+{
+  "entities": {
+    "Asset": {
+      "title": "Asset",
+      "description": "Church inventory asset item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "namaBarang": { "type": "string" },
+        "kodeAset": { "type": "string" },
+        "kategori": { "type": "string" },
+        "lokasi": { "type": "string" },
+        "ruang": { "type": "string" },
+        "kondisi": { "type": "string" },
+        "jumlah": { "type": "number" },
+        "satuan": { "type": "string" },
+        "tahunPerolehan": { "type": "number" },
+        "sumberDana": { "type": "string" },
+        "nilaiAset": { "type": "number" },
+        "timpelKode": { "type": "string" },
+        "timpelNama": { "type": "string" },
+        "keterangan": { "type": "string" },
+        "qrCode": { "type": "string" },
+        "fotoUrl": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "namaBarang", "kodeAset", "kondisi", "jumlah"]
+    },
+    "Loan": {
+      "title": "Loan",
+      "description": "Asset loan borrowing record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "assetId": { "type": "string" },
+        "assetName": { "type": "string" },
+        "borrowerName": { "type": "string" },
+        "borrowerContact": { "type": "string" },
+        "borrowerRole": { "type": "string" },
+        "borrowDate": { "type": "string" },
+        "expectedReturnDate": { "type": "string" },
+        "actualReturnDate": { "type": "string" },
+        "purpose": { "type": "string" },
+        "status": { "type": "string" },
+        "notes": { "type": "string" },
+        "conditionOnBorrow": { "type": "string" },
+        "conditionOnReturn": { "type": "string" },
+        "timpelKode": { "type": "string" }
+      },
+      "required": ["id", "assetId", "assetName", "borrowerName", "borrowDate", "status"]
+    },
+    "Maintenance": {
+      "title": "Maintenance",
+      "description": "Asset maintenance or service record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "assetId": { "type": "string" },
+        "assetName": { "type": "string" },
+        "scheduledDate": { "type": "string" },
+        "completedDate": { "type": "string" },
+        "type": { "type": "string" },
+        "description": { "type": "string" },
+        "cost": { "type": "number" },
+        "technician": { "type": "string" },
+        "status": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "assetId", "assetName", "scheduledDate", "type", "status"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System activity audit log entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "action": { "type": "string" },
+        "assetId": { "type": "string" },
+        "assetName": { "type": "string" },
+        "performedBy": { "type": "string" },
+        "role": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["id", "action", "performedBy", "timestamp"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Application user account",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "timpelKode": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["id", "username", "name", "role"]
+    }
+  },
+  "firestore": {
+    "/assets/{assetId}": {
+      "schema": "Asset",
+      "description": "Church inventory assets collection"
+    },
+    "/loans/{loanId}": {
+      "schema": "Loan",
+      "description": "Asset loan borrowing logs"
+    },
+    "/maintenance/{maintenanceId}": {
+      "schema": "Maintenance",
+      "description": "Asset maintenance and service history"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Audit trail logs for asset changes"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User accounts and permissions"
+    }
+  }
+}

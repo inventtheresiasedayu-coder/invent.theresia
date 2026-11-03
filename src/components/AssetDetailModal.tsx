@@ -757,18 +757,20 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onEdit(asset)}
-                className="p-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 transition"
-                title="Edit Aset"
+                className="px-3 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs"
+                title="Edit Aset (Hak Akses: Admin & Timpel)"
               >
-                <Edit className="w-4 h-4" />
+                <Edit className="w-3.5 h-3.5 text-blue-700" />
+                <span>Edit</span>
               </button>
 
               <button
                 onClick={() => onDelete(asset)}
-                className="p-2 border border-red-200 rounded-xl text-red-600 hover:bg-red-50 transition"
-                title="Hapus Aset"
+                className="px-3 py-2 border border-red-200 rounded-xl text-red-600 hover:bg-red-50 text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs"
+                title="Hapus Aset (Hak Akses: Admin & Timpel)"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Hapus</span>
               </button>
             </div>
           </div>

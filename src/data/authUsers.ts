@@ -65,6 +65,7 @@ export const ROLE_PERMISSIONS_INFO = [
     description: 'Pendataan fisik, permohonan pinjam, verifikasi opname di lapangan.',
     features: [
       'Pendataan fisik inventaris di kapel & ruangan',
+      'Edit & Hapus aset inventaris (Sinkronisasi Firebase Cloud)',
       'Permohonan pinjam barang & cetak Surat Jalan',
       'Verifikasi opname fisik berkala di lapangan via barcode',
       'Input jadwal pemeliharaan alat/AC/genset',

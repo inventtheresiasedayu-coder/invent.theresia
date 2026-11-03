@@ -1,6 +1,29 @@
 import { AssetItem, LoanRecord, MaintenanceRecord, AuditLog, AppUser } from '../types/inventory';
-import { INITIAL_ASSETS, INITIAL_LOANS, INITIAL_MAINTENANCE, INITIAL_AUDIT_LOGS, INITIAL_USERS } from '../data/initialAssets';
+import { INITIAL_ASSETS, INITIAL_LOANS, INITIAL_MAINTENANCE, INITIAL_AUDIT_LOGS } from '../data/initialAssets';
 import { AUTH_USERS, AuthAccount } from '../data/authUsers';
+import {
+  saveCloudAsset,
+  deleteCloudAsset,
+  uploadAllAssetsToCloud,
+  fetchCloudAssets,
+  saveCloudLoan,
+  deleteCloudLoan,
+  uploadAllLoansToCloud,
+  fetchCloudLoans,
+  saveCloudMaintenance,
+  deleteCloudMaintenance,
+  uploadAllMaintenanceToCloud,
+  fetchCloudMaintenance,
+  saveCloudAuditLog,
+  uploadAllAuditLogsToCloud,
+  fetchCloudAuditLogs,
+  saveCloudUser,
+  deleteCloudUser,
+  uploadAllUsersToCloud,
+  fetchCloudUsers,
+  testFirebaseConnection,
+  FirebaseConnectionStatus,
+} from './firebaseService';
 
 const ASSETS_KEY = 'pgpm_sedayu_assets_v1';
 const LOANS_KEY = 'pgpm_sedayu_loans_v1';
@@ -32,14 +55,23 @@ export const storageService = {
     try {
       const data = localStorage.getItem(ASSETS_KEY);
       if (data) {
-        const parsed = JSON.parse(data) as AssetItem[];
+        let parsed = JSON.parse(data) as AssetItem[];
         if (Array.isArray(parsed)) {
+          // Explicit cleanup for purged items (e.g., Karaoke Set JBL - Aula Lengkap)
+          const cleaned = parsed.filter(
+            (item) => item.id !== 'AST-0925' && !item.namaBarang?.includes('Karaoke Set JBL - Aula Lengkap')
+          );
+          let changed = cleaned.length !== parsed.length;
+          parsed = cleaned;
+
           const existingIds = new Set(parsed.map((item) => item.id));
           const missingItems = INITIAL_ASSETS.filter((item) => !existingIds.has(item.id));
           if (missingItems.length > 0) {
-            const merged = [...parsed, ...missingItems];
-            localStorage.setItem(ASSETS_KEY, JSON.stringify(merged));
-            return merged;
+            parsed = [...parsed, ...missingItems];
+            changed = true;
+          }
+          if (changed) {
+            localStorage.setItem(ASSETS_KEY, JSON.stringify(parsed));
           }
           return parsed;
         }
@@ -58,6 +90,49 @@ export const storageService = {
       window.dispatchEvent(new CustomEvent('pgpm_assets_updated', { detail: assets }));
     } catch (e) {
       console.error('Failed to save assets', e);
+    }
+  },
+
+  async saveSingleAsset(asset: AssetItem): Promise<void> {
+    const current = this.getAssets();
+    const index = current.findIndex((a) => a.id === asset.id);
+    let updated: AssetItem[];
+    if (index >= 0) {
+      updated = [...current];
+      updated[index] = asset;
+    } else {
+      updated = [asset, ...current];
+    }
+    this.saveAssets(updated);
+
+    // Sync to Firebase Cloud
+    try {
+      if (navigator.onLine) {
+        await saveCloudAsset(asset);
+      } else {
+        this.addToOfflineQueue({ type: 'SAVE_ASSET', payload: asset });
+      }
+    } catch (err) {
+      console.warn('Firebase cloud sync deferred:', err);
+      this.addToOfflineQueue({ type: 'SAVE_ASSET', payload: asset });
+    }
+  },
+
+  async deleteSingleAsset(assetId: string): Promise<void> {
+    const current = this.getAssets();
+    const updated = current.filter((a) => a.id !== assetId);
+    this.saveAssets(updated);
+
+    // Sync deletion to Firebase Cloud
+    try {
+      if (navigator.onLine) {
+        await deleteCloudAsset(assetId);
+      } else {
+        this.addToOfflineQueue({ type: 'DELETE_ASSET', payload: { id: assetId } });
+      }
+    } catch (err) {
+      console.warn('Firebase cloud delete deferred:', err);
+      this.addToOfflineQueue({ type: 'DELETE_ASSET', payload: { id: assetId } });
     }
   },
 
@@ -81,6 +156,24 @@ export const storageService = {
     }
   },
 
+  async saveSingleLoan(loan: LoanRecord): Promise<void> {
+    const current = this.getLoans();
+    const exists = current.some((l) => l.id === loan.id);
+    const updated = exists ? current.map((l) => (l.id === loan.id ? loan : l)) : [loan, ...current];
+    this.saveLoans(updated);
+
+    try {
+      if (navigator.onLine) {
+        await saveCloudLoan(loan);
+      } else {
+        this.addToOfflineQueue({ type: 'SAVE_LOAN', payload: loan });
+      }
+    } catch (err) {
+      console.warn('Deferred loan cloud sync:', err);
+      this.addToOfflineQueue({ type: 'SAVE_LOAN', payload: loan });
+    }
+  },
+
   getMaintenance(): MaintenanceRecord[] {
     try {
       const data = localStorage.getItem(MAINTENANCE_KEY);
@@ -98,6 +191,24 @@ export const storageService = {
       window.dispatchEvent(new CustomEvent('pgpm_maintenance_updated', { detail: maintenance }));
     } catch (e) {
       console.error('Failed to save maintenance', e);
+    }
+  },
+
+  async saveSingleMaintenance(rec: MaintenanceRecord): Promise<void> {
+    const current = this.getMaintenance();
+    const exists = current.some((m) => m.id === rec.id);
+    const updated = exists ? current.map((m) => (m.id === rec.id ? rec : m)) : [rec, ...current];
+    this.saveMaintenance(updated);
+
+    try {
+      if (navigator.onLine) {
+        await saveCloudMaintenance(rec);
+      } else {
+        this.addToOfflineQueue({ type: 'SAVE_MAINTENANCE', payload: rec });
+      }
+    } catch (err) {
+      console.warn('Deferred maintenance cloud sync:', err);
+      this.addToOfflineQueue({ type: 'SAVE_MAINTENANCE', payload: rec });
     }
   },
 
@@ -129,9 +240,14 @@ export const storageService = {
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
     };
     logs.unshift(newLog);
-    // keep max 500 logs
+    // keep max 500 logs locally
     if (logs.length > 500) logs.pop();
     this.saveAuditLogs(logs);
+
+    // Save to Firebase Cloud
+    if (navigator.onLine) {
+      saveCloudAuditLog(newLog).catch((err) => console.warn('Cloud audit log notice:', err));
+    }
   },
 
   getAuthSession(): AppUser | null {
@@ -193,9 +309,8 @@ export const storageService = {
     }
   },
 
-  addRegisteredUser(newUser: AuthAccount): void {
+  async addRegisteredUser(newUser: AuthAccount): Promise<void> {
     const current = this.getRegisteredUsers();
-    // check if username already exists
     const exists = current.some(
       (u) => u.username.toLowerCase() === newUser.username.toLowerCase()
     );
@@ -204,22 +319,45 @@ export const storageService = {
     }
     const updated = [...current, newUser];
     this.saveRegisteredUsers(updated);
+
+    try {
+      if (navigator.onLine) {
+        await saveCloudUser(newUser);
+      }
+    } catch (err) {
+      console.warn('Deferred user cloud sync:', err);
+    }
   },
 
-  updateRegisteredUser(user: AuthAccount): void {
+  async updateRegisteredUser(user: AuthAccount): Promise<void> {
     const current = this.getRegisteredUsers();
     const updated = current.map((u) => (u.id === user.id ? user : u));
     this.saveRegisteredUsers(updated);
+
+    try {
+      if (navigator.onLine) {
+        await saveCloudUser(user);
+      }
+    } catch (err) {
+      console.warn('Deferred user cloud sync:', err);
+    }
   },
 
-  deleteRegisteredUser(userId: string): void {
+  async deleteRegisteredUser(userId: string): Promise<void> {
     const current = this.getRegisteredUsers();
-    // Cannot delete the primary admin
     if (userId === 'usr-admin-01') {
       throw new Error('Akun Administrator Utama PGPM tidak dapat dihapus.');
     }
     const updated = current.filter((u) => u.id !== userId);
     this.saveRegisteredUsers(updated);
+
+    try {
+      if (navigator.onLine) {
+        await deleteCloudUser(userId);
+      }
+    } catch (err) {
+      console.warn('Deferred user cloud delete:', err);
+    }
   },
 
   authenticate(username: string, password: string): AuthAccount | null {
@@ -248,7 +386,7 @@ export const storageService = {
       parokiCode: 'PRK-KAS-047-SEDAYU',
       keuskupanCode: 'KAS-SEMARANG',
       autoSync: true,
-      lastSyncTimestamp: '2026-10-28 18:30:00',
+      lastSyncTimestamp: new Date().toISOString().slice(0, 10),
       serverStatus: 'connected',
     };
     return defaultSettings;
@@ -276,7 +414,7 @@ export const storageService = {
     const queue = this.getOfflineQueue();
     queue.push({
       ...action,
-      id: `OFL-${Date.now()}`,
+      id: `OFL-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       timestamp: new Date().toISOString(),
     });
     localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
@@ -286,6 +424,114 @@ export const storageService = {
   clearOfflineQueue(): void {
     localStorage.removeItem(OFFLINE_QUEUE_KEY);
     window.dispatchEvent(new CustomEvent('pgpm_offline_queue_updated', { detail: [] }));
+  },
+
+  async processOfflineQueue(): Promise<number> {
+    const queue = this.getOfflineQueue();
+    if (queue.length === 0 || !navigator.onLine) return 0;
+
+    let processedCount = 0;
+    const remaining: OfflineAction[] = [];
+
+    for (const item of queue) {
+      try {
+        if (item.type === 'SAVE_ASSET') {
+          await saveCloudAsset(item.payload);
+        } else if (item.type === 'DELETE_ASSET') {
+          await deleteCloudAsset(item.payload.id);
+        } else if (item.type === 'SAVE_LOAN') {
+          await saveCloudLoan(item.payload);
+        } else if (item.type === 'SAVE_MAINTENANCE') {
+          await saveCloudMaintenance(item.payload);
+        }
+        processedCount++;
+      } catch (err) {
+        remaining.push(item);
+      }
+    }
+
+    if (remaining.length === 0) {
+      this.clearOfflineQueue();
+    } else {
+      localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remaining));
+      window.dispatchEvent(new CustomEvent('pgpm_offline_queue_updated', { detail: remaining }));
+    }
+
+    return processedCount;
+  },
+
+  /**
+   * One-click upload all local assets, loans, maintenance, audit logs, and users into Firebase Cloud Firestore
+   */
+  async syncAllToFirebase(
+    onProgress?: (percent: number, current: number, total: number) => void
+  ): Promise<{ success: boolean; assetsCount: number; message: string }> {
+    const assets = this.getAssets();
+    const loans = this.getLoans();
+    const maintenance = this.getMaintenance();
+    const auditLogs = this.getAuditLogs();
+    const users = this.getRegisteredUsers();
+
+    try {
+      const uploadedAssets = await uploadAllAssetsToCloud(assets, onProgress);
+      await uploadAllLoansToCloud(loans);
+      await uploadAllMaintenanceToCloud(maintenance);
+      await uploadAllAuditLogsToCloud(auditLogs);
+      await uploadAllUsersToCloud(users);
+
+      const settings = this.getSyncSettings();
+      settings.lastSyncTimestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      settings.serverStatus = 'connected';
+      this.saveSyncSettings(settings);
+
+      return {
+        success: true,
+        assetsCount: uploadedAssets,
+        message: `Berhasil mengunggah ${uploadedAssets} data aset dan seluruh riwayat ke Firebase Cloud Firestore!`,
+      };
+    } catch (error: any) {
+      console.error('Firebase sync error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Pull latest data from Firebase Cloud Firestore into local storage
+   */
+  async syncFromFirebase(): Promise<{
+    assets: AssetItem[];
+    loans: LoanRecord[];
+    maintenance: MaintenanceRecord[];
+    auditLogs: AuditLog[];
+  }> {
+    const cloudAssets = await fetchCloudAssets();
+    const cloudLoans = await fetchCloudLoans();
+    const cloudMaintenance = await fetchCloudMaintenance();
+    const cloudAuditLogs = await fetchCloudAuditLogs();
+    const cloudUsers = await fetchCloudUsers();
+
+    if (cloudAssets.length > 0) {
+      this.saveAssets(cloudAssets);
+    }
+    if (cloudLoans.length > 0) {
+      this.saveLoans(cloudLoans);
+    }
+    if (cloudMaintenance.length > 0) {
+      this.saveMaintenance(cloudMaintenance);
+    }
+    if (cloudAuditLogs.length > 0) {
+      this.saveAuditLogs(cloudAuditLogs);
+    }
+    if (cloudUsers.length > 0) {
+      this.saveRegisteredUsers(cloudUsers);
+    }
+
+    return {
+      assets: this.getAssets(),
+      loans: this.getLoans(),
+      maintenance: this.getMaintenance(),
+      auditLogs: this.getAuditLogs(),
+    };
   },
 
   resetAllToFactory(): void {
