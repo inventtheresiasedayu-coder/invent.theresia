@@ -17,7 +17,9 @@ export const BatchPrintModal: React.FC<BatchPrintModalProps> = ({ assets, onClos
 
   const filteredAssets = filterLocation === 'all'
     ? assets
-    : assets.filter((a) => a.lokasi.includes(filterLocation));
+    : filterLocation === 'Jakarta'
+    ? assets.filter((a) => (a.keterangan && a.keterangan.includes('Jakarta')) || a.namaBarang.includes('(Hibah Jakarta)'))
+    : assets.filter((a) => a.lokasi.toLowerCase().includes(filterLocation.toLowerCase()) || a.ruangNama.toLowerCase().includes(filterLocation.toLowerCase()));
 
   useEffect(() => {
     // Generate QR for all selected
@@ -93,14 +95,18 @@ export const BatchPrintModal: React.FC<BatchPrintModalProps> = ({ assets, onClos
               className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 outline-hidden"
             >
               <option value="all">Semua Lokasi</option>
+              <option value="Jakarta">🎁 Barang Hibah Jakarta</option>
               <option value="Gereja Paroki Sedayu">Gereja Paroki Sedayu</option>
+              <option value="Ruang Rapat 3">Ruang Rapat 3 (Pastoral)</option>
+              <option value="OMK">Ruang OMK (Pastoral)</option>
+              <option value="AULA">Aula Paroki</option>
+              <option value="Demangan">Kapel Demangan</option>
+              <option value="PASTORAN">Pastoran (Ruang Makan)</option>
+              <option value="Kesehatan">Ruang Kesehatan / P3K</option>
               <option value="Kaliduren">Kapel Kaliduren</option>
               <option value="Metes">Kapel Metes</option>
-              <option value="Demangan">Kapel Demangan</option>
               <option value="Jurug">Kapel Jurug</option>
               <option value="Sumbersari">Kapel Sumbersari</option>
-              <option value="PASTORAN">Pastoran</option>
-              <option value="AULA">Aula</option>
               <option value="SAKRISTI">Sakristi</option>
             </select>
           </div>

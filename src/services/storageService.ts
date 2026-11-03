@@ -32,7 +32,17 @@ export const storageService = {
     try {
       const data = localStorage.getItem(ASSETS_KEY);
       if (data) {
-        return JSON.parse(data);
+        const parsed = JSON.parse(data) as AssetItem[];
+        if (Array.isArray(parsed)) {
+          const existingIds = new Set(parsed.map((item) => item.id));
+          const missingItems = INITIAL_ASSETS.filter((item) => !existingIds.has(item.id));
+          if (missingItems.length > 0) {
+            const merged = [...parsed, ...missingItems];
+            localStorage.setItem(ASSETS_KEY, JSON.stringify(merged));
+            return merged;
+          }
+          return parsed;
+        }
       }
     } catch (e) {
       console.error('Failed to load assets from localStorage', e);

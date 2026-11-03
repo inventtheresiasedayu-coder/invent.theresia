@@ -422,7 +422,8 @@ export default function App() {
           item.lokasi.toLowerCase().includes(q) ||
           item.ruangNama.toLowerCase().includes(q) ||
           item.pengguna.toLowerCase().includes(q) ||
-          item.jenisAsetName.toLowerCase().includes(q);
+          item.jenisAsetName.toLowerCase().includes(q) ||
+          (Boolean(item.keterangan) && item.keterangan.toLowerCase().includes(q));
         if (!match) return false;
       }
 
@@ -1111,6 +1112,110 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Quick Filter Tags */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Filter Cepat:</span>
+                <button
+                  onClick={() => {
+                    setSearchQuery('Hibah Jakarta');
+                    setSelectedLokasi('all');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
+                    searchQuery === 'Hibah Jakarta'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-300'
+                  }`}
+                >
+                  <span>🎁</span>
+                  <span>Bantuan Hibah Jakarta ({assets.filter(a => (a.keterangan && a.keterangan.includes('Jakarta')) || a.namaBarang.includes('(Hibah Jakarta)')).length} Item)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedLokasi('Ruang Rapat 3');
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                    selectedLokasi === 'Ruang Rapat 3'
+                      ? 'bg-blue-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Ruang Rapat 3
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedLokasi('OMK');
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                    selectedLokasi === 'OMK'
+                      ? 'bg-blue-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Ruang OMK
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedLokasi('AULA');
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                    selectedLokasi === 'AULA'
+                      ? 'bg-blue-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Aula Paroki
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedLokasi('Demangan');
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                    selectedLokasi === 'Demangan'
+                      ? 'bg-blue-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Kapel Demangan
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedLokasi('PASTORAN');
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                    selectedLokasi === 'PASTORAN'
+                      ? 'bg-blue-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Pastoran (Ruang Makan)
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedLokasi('Kesehatan');
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                    selectedLokasi === 'Kesehatan'
+                      ? 'bg-blue-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Ruang Kesehatan
+                </button>
+              </div>
+
               {/* Row 2: Filter Selectors */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 pt-2 border-t border-slate-100 text-xs">
                 {/* Lokasi */}
@@ -1128,13 +1233,16 @@ export default function App() {
                   >
                     <option value="all">Semua Lokasi</option>
                     <option value="Gereja Paroki">Gereja Paroki Sedayu</option>
+                    <option value="Ruang Rapat 3">Ruang Rapat 3 (Pastoral)</option>
+                    <option value="OMK">Ruang OMK (Pastoral)</option>
+                    <option value="AULA">Aula Paroki</option>
+                    <option value="Demangan">Kapel Demangan</option>
+                    <option value="PASTORAN">Pastoran Paroki</option>
+                    <option value="Kesehatan">Ruang Kesehatan / P3K</option>
                     <option value="Kaliduren">Kapel Kaliduren</option>
                     <option value="Metes">Kapel Metes</option>
-                    <option value="Demangan">Kapel Demangan</option>
                     <option value="Jurug">Kapel Jurug</option>
                     <option value="Sumbersari">Kapel Sumbersari</option>
-                    <option value="PASTORAN">Pastoran</option>
-                    <option value="AULA">Aula</option>
                     <option value="SAKRISTI">Sakristi</option>
                   </select>
                 </div>
@@ -1279,6 +1387,7 @@ export default function App() {
                       <th className="py-3 px-3">Timpel</th>
                       <th className="py-3 px-3 text-center">Tahun</th>
                       <th className="py-3 px-3 text-center">Jumlah</th>
+                      <th className="py-3 px-3 text-right">Perkiraan Nilai</th>
                       <th className="py-3 px-3">Kondisi</th>
                       <th className="py-3 px-3">Lokasi & Ruang</th>
                       <th className="py-3 px-3 text-center">Status</th>
@@ -1288,7 +1397,7 @@ export default function App() {
                   <tbody className="divide-y divide-slate-100">
                     {paginatedAssets.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="py-12 text-center text-slate-400">
+                        <td colSpan={11} className="py-12 text-center text-slate-400">
                           Tidak ada aset yang sesuai dengan kriteria filter pencarian.
                         </td>
                       </tr>
@@ -1325,6 +1434,15 @@ export default function App() {
                             </td>
                             <td className="py-2.5 px-3 text-center font-bold text-slate-800 whitespace-nowrap">
                               {item.quantity} {item.satuan}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono text-slate-700 whitespace-nowrap">
+                              {item.hargaNilai > 0 ? (
+                                <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[11px]">
+                                  Rp {item.hargaNilai.toLocaleString('id-ID')}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">-</span>
+                              )}
                             </td>
                             <td className="py-2.5 px-3 whitespace-nowrap">
                               <span

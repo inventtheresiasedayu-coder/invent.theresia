@@ -282,11 +282,24 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                         {asset.tahunPerolehan}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Nilai Perolehan:</span>
-                      <span className="font-semibold text-slate-800 font-mono">
-                        {asset.hargaNilai > 0 ? `Rp ${asset.hargaNilai.toLocaleString('id-ID')}` : 'Tidak tercatat / Hibah'}
-                      </span>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-slate-500">Perkiraan Nilai:</span>
+                      <div className="text-right font-mono">
+                        {asset.hargaNilai > 0 ? (
+                          <div>
+                            <span className="font-bold text-emerald-800 text-sm">
+                              Rp {asset.hargaNilai.toLocaleString('id-ID')}
+                            </span>
+                            {asset.quantity > 1 && (
+                              <span className="text-[10px] text-slate-500 block">
+                                (@ {asset.satuan} • Total: Rp {(asset.hargaNilai * asset.quantity).toLocaleString('id-ID')})
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-500">Hibah / Belum Dinilai</span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Asal Usul:</span>
