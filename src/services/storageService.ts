@@ -33,6 +33,11 @@ const USER_KEY = 'pgpm_sedayu_current_user_v1';
 const REGISTERED_USERS_KEY = 'pgpm_sedayu_registered_users_v1';
 const SYNC_SETTINGS_KEY = 'pgpm_sedayu_sync_settings_v1';
 const OFFLINE_QUEUE_KEY = 'pgpm_sedayu_offline_queue_v1';
+const LAST_ACTIVITY_KEY = 'pgpm_sedayu_last_activity_v1';
+
+// 10 minutes auto-logout configuration
+export const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 menit (600.000 ms)
+export const INACTIVITY_WARNING_MS = 9 * 60 * 1000;  // 9 menit (peringatan 60 detik sebelum keluar)
 
 export interface SyncSettings {
   centralApiUrl: string;
@@ -250,10 +255,54 @@ export const storageService = {
     }
   },
 
+  getLastActivity(): number {
+    try {
+      const val = localStorage.getItem(LAST_ACTIVITY_KEY);
+      if (val) {
+        const num = parseInt(val, 10);
+        if (!isNaN(num)) return num;
+      }
+    } catch (e) {
+      console.error('Failed to get last activity', e);
+    }
+    return Date.now();
+  },
+
+  updateLastActivity(): void {
+    try {
+      const now = Date.now();
+      localStorage.setItem(LAST_ACTIVITY_KEY, now.toString());
+      window.dispatchEvent(new CustomEvent('pgpm_activity_detected', { detail: now }));
+    } catch (e) {
+      console.error('Failed to update last activity', e);
+    }
+  },
+
+  clearLastActivity(): void {
+    try {
+      localStorage.removeItem(LAST_ACTIVITY_KEY);
+    } catch (e) {}
+  },
+
+  isSessionExpired(): boolean {
+    const val = localStorage.getItem(LAST_ACTIVITY_KEY);
+    if (!val) return false;
+    const last = parseInt(val, 10);
+    if (isNaN(last)) return false;
+    return Date.now() - last >= INACTIVITY_TIMEOUT_MS;
+  },
+
   getAuthSession(): AppUser | null {
     try {
       const data = localStorage.getItem(USER_KEY);
-      if (data) return JSON.parse(data);
+      if (data) {
+        if (this.isSessionExpired()) {
+          // Inactivity 10 minutes exceeded: auto logout
+          this.logout();
+          return null;
+        }
+        return JSON.parse(data);
+      }
     } catch (e) {
       console.error('Failed to load auth session', e);
     }
@@ -263,6 +312,7 @@ export const storageService = {
   setAuthSession(user: AppUser): void {
     try {
       localStorage.setItem(USER_KEY, JSON.stringify(user));
+      this.updateLastActivity();
       window.dispatchEvent(new CustomEvent('pgpm_user_changed', { detail: user }));
     } catch (e) {
       console.error('Failed to save auth session', e);
@@ -272,6 +322,7 @@ export const storageService = {
   logout(): void {
     try {
       localStorage.removeItem(USER_KEY);
+      this.clearLastActivity();
       window.dispatchEvent(new CustomEvent('pgpm_user_changed', { detail: null }));
     } catch (e) {
       console.error('Failed to logout', e);

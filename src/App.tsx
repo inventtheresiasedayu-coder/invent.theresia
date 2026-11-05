@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   AssetItem,
   LoanRecord,
@@ -32,6 +32,8 @@ import { SyncModal } from './components/SyncModal';
 import { FrontLoginPage } from './components/FrontLoginPage';
 import { UserManagementView } from './components/UserManagementView';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
+import { InactivityWarningModal } from './components/InactivityWarningModal';
+import { useAutoLogout } from './hooks/useAutoLogout';
 import { testFirebaseConnection, subscribeToCloudAssets } from './services/firebaseService';
 
 // Icons
@@ -188,10 +190,48 @@ export default function App() {
     };
   }, []);
 
-  const triggerToast = (text: string, type: 'success' | 'info' | 'warn' = 'success') => {
+  const triggerToast = useCallback((text: string, type: 'success' | 'info' | 'warn' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 4000);
-  };
+  }, []);
+
+  // Inactivity Auto-Logout (10 Menit Tidak Aktif)
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState<string | null>(() => {
+    if (typeof window !== 'undefined' && storageService.isSessionExpired()) {
+      return 'Sesi Anda telah berakhir secara otomatis karena tidak ada aktivitas selama 10 menit demi keamanan data aset gereja.';
+    }
+    return null;
+  });
+
+  const handleAutoLogout = useCallback(() => {
+    storageService.logout();
+    setCurrentUser(null);
+    setShowFormModal(false);
+    setShowDetailModal(false);
+    setShowBarcodeModal(false);
+    setShowBatchPrintModal(false);
+    setShowScannerModal(false);
+    setShowLoanModal(false);
+    setShowMaintenanceModal(false);
+    setShowExcelImportModal(false);
+    setShowRoleModal(false);
+    setShowSyncModal(false);
+    setShowDeleteModal(false);
+    setAssetToDelete(null);
+    setAssetToEdit(null);
+    setSessionExpiredNotice(
+      'Sesi Anda telah berakhir secara otomatis karena tidak ada aktivitas selama 10 menit demi keamanan data aset gereja.'
+    );
+    setToastMessage({
+      text: 'Sesi Anda berakhir otomatis setelah 10 menit tidak aktif.',
+      type: 'warn',
+    });
+  }, []);
+
+  const { showWarning, remainingSeconds, stayLoggedIn } = useAutoLogout({
+    isEnabled: !!currentUser,
+    onAutoLogout: handleAutoLogout,
+  });
 
   // Keep existing codes in memory for sequence calculator
   const allExistingCodes = useMemo(() => assets.map((a) => a.kodeAset), [assets]);
@@ -588,7 +628,10 @@ export default function App() {
   if (!currentUser) {
     return (
       <FrontLoginPage
+        sessionNotice={sessionExpiredNotice}
+        onClearNotice={() => setSessionExpiredNotice(null)}
         onLoginSuccess={(user) => {
+          setSessionExpiredNotice(null);
           setCurrentUser(user);
           storageService.setAuthSession(user);
           triggerToast(`Selamat datang, ${user.name}! Anda berhasil masuk sebagai ${user.role}.`, 'success');
@@ -741,6 +784,16 @@ export default function App() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Security Inactivity Badge */}
+              <div
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/80 border border-slate-700/60 text-[11px] text-slate-300 select-none shadow-sm"
+                title="Keamanan Sesi: Sistem akan otomatis logout setelah 10 menit tanpa aktivitas"
+              >
+                <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="text-[10px] text-slate-400 font-medium">Auto-logout:</span>
+                <span className="text-amber-300 font-bold font-mono text-[10px]">10 mnt</span>
               </div>
 
               {/* User Profile / Role Switcher */}
@@ -2295,6 +2348,18 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Inactivity Warning Countdown Modal (Last 60 Seconds of 10-Minute Timeout) */}
+      <InactivityWarningModal
+        isOpen={showWarning}
+        remainingSeconds={remainingSeconds}
+        onStayLoggedIn={stayLoggedIn}
+        onLogoutNow={() => {
+          storageService.logout();
+          setCurrentUser(null);
+          triggerToast('Anda telah keluar dari sistem inventaris.', 'info');
+        }}
+      />
     </div>
   );
 }

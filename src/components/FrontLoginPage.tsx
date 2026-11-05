@@ -11,13 +11,20 @@ import {
   CheckCircle2,
   AlertCircle,
   Building,
+  Clock,
 } from 'lucide-react';
 
 interface FrontLoginPageProps {
   onLoginSuccess: (user: AppUser) => void;
+  sessionNotice?: string | null;
+  onClearNotice?: () => void;
 }
 
-export const FrontLoginPage: React.FC<FrontLoginPageProps> = ({ onLoginSuccess }) => {
+export const FrontLoginPage: React.FC<FrontLoginPageProps> = ({
+  onLoginSuccess,
+  sessionNotice,
+  onClearNotice,
+}) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -156,6 +163,27 @@ export const FrontLoginPage: React.FC<FrontLoginPageProps> = ({ onLoginSuccess }
                   Gunakan username dan password yang telah diterbitkan oleh Admin PGPM
                 </p>
               </div>
+
+              {/* Inactivity Session Notice Banner */}
+              {sessionNotice && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-200 animate-fadeIn">
+                  <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 leading-relaxed">
+                    <strong className="font-semibold block text-amber-300">Sesi Berakhir Otomatis</strong>
+                    <span>{sessionNotice}</span>
+                  </div>
+                  {onClearNotice && (
+                    <button
+                      type="button"
+                      onClick={onClearNotice}
+                      className="text-amber-400 hover:text-white text-xs font-bold px-1 transition"
+                      title="Tutup pesan"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )}
 
               <form onSubmit={handleLogin} className="space-y-4">
                 {/* Username Input */}
