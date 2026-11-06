@@ -34,7 +34,11 @@ import { UserManagementView } from './components/UserManagementView';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { InactivityWarningModal } from './components/InactivityWarningModal';
 import { useAutoLogout } from './hooks/useAutoLogout';
-import { testFirebaseConnection, subscribeToCloudAssets } from './services/firebaseService';
+import {
+  testFirebaseConnection,
+  subscribeToCloudAssets,
+  subscribeToCloudUsers,
+} from './services/firebaseService';
 
 // Icons
 import {
@@ -148,32 +152,45 @@ export default function App() {
 
   // Online / Offline & Firebase listeners
   useEffect(() => {
-    // Validate connection to Firebase Cloud Firestore
+    // Validate connection to Firebase Cloud Firestore and sync users
     testFirebaseConnection()
       .then((status) => {
         if (status.connected) {
           storageService.processOfflineQueue().catch(() => {});
+          storageService.syncUsersWithCloud().catch(() => {});
         }
       })
       .catch(() => {});
 
-    // Realtime Cloud Listener for Assets
-    let unsubscribe: (() => void) | null = null;
+    // Realtime Cloud Listener for Assets with Safe Merge (Guarantees INITIAL_ASSETS are never wiped)
+    let unsubscribeAssets: (() => void) | null = null;
     try {
-      unsubscribe = subscribeToCloudAssets((cloudItems) => {
+      unsubscribeAssets = subscribeToCloudAssets((cloudItems) => {
         if (cloudItems && cloudItems.length > 0) {
-          setAssets(cloudItems);
-          storageService.saveAssets(cloudItems);
+          setAssets((prev) => storageService.mergeCloudAssets(prev, cloudItems));
         }
       });
     } catch (e) {
-      console.warn('Realtime subscription notice:', e);
+      console.warn('Realtime asset subscription notice:', e);
+    }
+
+    // Realtime Cloud Listener for User Accounts
+    let unsubscribeUsers: (() => void) | null = null;
+    try {
+      unsubscribeUsers = subscribeToCloudUsers((cloudUsers) => {
+        if (cloudUsers && cloudUsers.length > 0) {
+          storageService.syncUsersWithCloud().catch(() => {});
+        }
+      });
+    } catch (e) {
+      console.warn('Realtime users subscription notice:', e);
     }
 
     const handleOnline = () => {
       setIsOnline(true);
       triggerToast('Koneksi internet terhubung kembali. Sinkronisasi otomatis ke Firebase Cloud aktif.', 'success');
       storageService.processOfflineQueue().catch(() => {});
+      storageService.syncUsersWithCloud().catch(() => {});
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -186,7 +203,8 @@ export default function App() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeAssets) unsubscribeAssets();
+      if (unsubscribeUsers) unsubscribeUsers();
     };
   }, []);
 

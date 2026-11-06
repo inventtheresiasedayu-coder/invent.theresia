@@ -56,21 +56,46 @@ export interface OfflineAction {
 }
 
 export const storageService = {
+  getDeletedAssetIds(): Set<string> {
+    try {
+      const data = localStorage.getItem('pgpm_sedayu_deleted_assets_v1');
+      if (data) {
+        const arr = JSON.parse(data);
+        if (Array.isArray(arr)) {
+          const s = new Set<string>(arr);
+          s.add('AST-0925');
+          return s;
+        }
+      }
+    } catch (e) {}
+    return new Set<string>(['AST-0925']);
+  },
+
+  markAssetAsDeleted(assetId: string): void {
+    const s = this.getDeletedAssetIds();
+    s.add(assetId);
+    try {
+      localStorage.setItem('pgpm_sedayu_deleted_assets_v1', JSON.stringify(Array.from(s)));
+    } catch (e) {}
+  },
+
   getAssets(): AssetItem[] {
     try {
+      const deletedIds = this.getDeletedAssetIds();
       const data = localStorage.getItem(ASSETS_KEY);
       if (data) {
         let parsed = JSON.parse(data) as AssetItem[];
         if (Array.isArray(parsed)) {
-          // Explicit cleanup for purged items (e.g., Karaoke Set JBL - Aula Lengkap)
+          // Explicit cleanup for purged items
           const cleaned = parsed.filter(
-            (item) => item.id !== 'AST-0925' && !item.namaBarang?.includes('Karaoke Set JBL - Aula Lengkap')
+            (item) => !deletedIds.has(item.id) && !item.namaBarang?.includes('Karaoke Set JBL - Aula Lengkap')
           );
           let changed = cleaned.length !== parsed.length;
           parsed = cleaned;
 
           const existingIds = new Set(parsed.map((item) => item.id));
-          const missingItems = INITIAL_ASSETS.filter((item) => !existingIds.has(item.id));
+          // Always guarantee initial church records are preserved and never lost
+          const missingItems = INITIAL_ASSETS.filter((item) => !existingIds.has(item.id) && !deletedIds.has(item.id));
           if (missingItems.length > 0) {
             parsed = [...parsed, ...missingItems];
             changed = true;
@@ -84,9 +109,46 @@ export const storageService = {
     } catch (e) {
       console.error('Failed to load assets from localStorage', e);
     }
-    // initialize with parsed church items
-    this.saveAssets(INITIAL_ASSETS);
-    return INITIAL_ASSETS;
+    // initialize with parsed church items excluding purged
+    const deletedIds = this.getDeletedAssetIds();
+    const cleanInitial = INITIAL_ASSETS.filter((item) => !deletedIds.has(item.id));
+    this.saveAssets(cleanInitial);
+    return cleanInitial;
+  },
+
+  /**
+   * Safe cloud merging algorithm:
+   * Protects INITIAL_ASSETS from ever being wiped out when only a subset
+   * of assets is returned from Firestore.
+   */
+  mergeCloudAssets(currentAssets: AssetItem[], cloudItems: AssetItem[]): AssetItem[] {
+    const deletedIds = this.getDeletedAssetIds();
+    const assetMap = new Map<string, AssetItem>();
+
+    // 1. Base church data: INITIAL_ASSETS are ALWAYS preserved
+    INITIAL_ASSETS.forEach((item) => {
+      if (!deletedIds.has(item.id)) {
+        assetMap.set(item.id, item);
+      }
+    });
+
+    // 2. Overlay locally cached assets in memory
+    currentAssets.forEach((item) => {
+      if (!deletedIds.has(item.id)) {
+        assetMap.set(item.id, item);
+      }
+    });
+
+    // 3. Overlay incoming cloud items (updates or new additions)
+    cloudItems.forEach((item) => {
+      if (item && item.id && !deletedIds.has(item.id)) {
+        assetMap.set(item.id, item);
+      }
+    });
+
+    const merged = Array.from(assetMap.values());
+    this.saveAssets(merged);
+    return merged;
   },
 
   saveAssets(assets: AssetItem[]): void {
@@ -124,6 +186,7 @@ export const storageService = {
   },
 
   async deleteSingleAsset(assetId: string): Promise<void> {
+    this.markAssetAsDeleted(assetId);
     const current = this.getAssets();
     const updated = current.filter((a) => a.id !== assetId);
     this.saveAssets(updated);
@@ -342,13 +405,65 @@ export const storageService = {
       const data = localStorage.getItem(REGISTERED_USERS_KEY);
       if (data) {
         const parsed = JSON.parse(data);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Always ensure core AUTH_USERS exist
+          const existingUsernames = new Set(parsed.map((u: AuthAccount) => u.username.toLowerCase()));
+          const missing = AUTH_USERS.filter((u) => !existingUsernames.has(u.username.toLowerCase()));
+          if (missing.length > 0) {
+            const merged = [...parsed, ...missing];
+            localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(merged));
+            return merged;
+          }
+          return parsed;
+        }
       }
     } catch (e) {
       console.error('Failed to load registered users', e);
     }
     this.saveRegisteredUsers(AUTH_USERS);
     return AUTH_USERS;
+  },
+
+  /**
+   * Bidirectional sync for users and accounts with Firebase Firestore
+   */
+  async syncUsersWithCloud(): Promise<AuthAccount[]> {
+    try {
+      if (navigator.onLine) {
+        const cloudUsers = await fetchCloudUsers();
+        const cloudUsernames = new Set(cloudUsers.map((u) => u.username.toLowerCase()));
+
+        // 1. Seed any missing core accounts to Firestore
+        for (const baseUser of AUTH_USERS) {
+          if (!cloudUsernames.has(baseUser.username.toLowerCase())) {
+            await saveCloudUser(baseUser);
+            cloudUsers.push(baseUser);
+          }
+        }
+
+        const local = this.getRegisteredUsers();
+        // 2. Upload any local custom accounts to Firestore
+        for (const locUser of local) {
+          if (!cloudUsernames.has(locUser.username.toLowerCase())) {
+            await saveCloudUser(locUser);
+            cloudUsers.push(locUser);
+          }
+        }
+
+        // 3. Merge all users together by username
+        const map = new Map<string, AuthAccount>();
+        AUTH_USERS.forEach((u) => map.set(u.username.toLowerCase(), u));
+        local.forEach((u) => map.set(u.username.toLowerCase(), u));
+        cloudUsers.forEach((u) => map.set(u.username.toLowerCase(), u));
+
+        const merged = Array.from(map.values());
+        this.saveRegisteredUsers(merged);
+        return merged;
+      }
+    } catch (err) {
+      console.warn('Sync users with cloud notice:', err);
+    }
+    return this.getRegisteredUsers();
   },
 
   saveRegisteredUsers(users: AuthAccount[]): void {
@@ -562,7 +677,7 @@ export const storageService = {
     const cloudUsers = await fetchCloudUsers();
 
     if (cloudAssets.length > 0) {
-      this.saveAssets(cloudAssets);
+      this.mergeCloudAssets(this.getAssets(), cloudAssets);
     }
     if (cloudLoans.length > 0) {
       this.saveLoans(cloudLoans);
@@ -574,7 +689,12 @@ export const storageService = {
       this.saveAuditLogs(cloudAuditLogs);
     }
     if (cloudUsers.length > 0) {
-      this.saveRegisteredUsers(cloudUsers);
+      const currentUsers = this.getRegisteredUsers();
+      const map = new Map<string, AuthAccount>();
+      AUTH_USERS.forEach((u) => map.set(u.username.toLowerCase(), u));
+      currentUsers.forEach((u) => map.set(u.username.toLowerCase(), u));
+      cloudUsers.forEach((u) => map.set(u.username.toLowerCase(), u));
+      this.saveRegisteredUsers(Array.from(map.values()));
     }
 
     return {

@@ -306,3 +306,25 @@ export function subscribeToCloudMaintenance(
     }
   );
 }
+
+export function subscribeToCloudUsers(
+  onUpdate: (users: AuthAccount[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
+  const colRef = collection(db, USERS_COLLECTION);
+  return onSnapshot(
+    colRef,
+    (snap) => {
+      const items: AuthAccount[] = [];
+      snap.forEach((docSnap) => items.push(docSnap.data() as AuthAccount));
+      if (items.length > 0) {
+        onUpdate(items);
+      }
+    },
+    (error) => {
+      console.warn('Realtime users listener notice:', error);
+      if (onError) onError(error);
+    }
+  );
+}
+
